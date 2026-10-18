@@ -110,6 +110,18 @@ At the due time the server sends `continue` to the session through the same deta
 - Managed settings that set the key are shown as locked in the UI, not overridden.
 - Reuse the `scheduled_messages` table with a marker for auto-resumes rather than a new table, unless that complicates the user-facing list.
 
+## Resolved after builder review (assistant's calls unless noted)
+
+- **What counts as a limit stop.** Schedule only when the run actually ends because of the limit: a `rejected` `rate_limit_event` followed by the run ending with a rate-limit error. A `rejected` event while the run carries on (for example overage is allowed, or the event's `overageStatus` shows the user can proceed) does nothing. A `rejected` event with no matching run end is ignored.
+- **Reset time units.** The SDK's `resetsAt` is epoch time; normalise it the way `formatUsageLimitText` does (a value below 1e12 is seconds, otherwise milliseconds). The legacy text timestamp gets the same normalisation. This fallback is best-effort and only reachable if the SDK path yields no `resetsAt`.
+- **Ceiling.** Do not schedule further ahead than 7 days plus one hour. Anything later is marked `failed` ("reset time too far away").
+- **Cancelling and the counter.** Any message the user sends to the session before the due time cancels the pending resume, from any tab, and so does a user-scheduled message that fires before it. The counter resets after any turn in that session completes normally. A user turn that itself ends on a limit is treated as a new limit hit (replaces the pending resume, and the counter restarts from one).
+- **Busy at due time.** If the session is busy (use `isSessionBusy`, which includes background work), wait and re-check on each poll. The wait does not count as an attempt and does not start the no-response timer. Give up after 1 hour of waiting and mark the resume `failed` ("session stayed busy").
+- **Observing the outcome.** The shared sender may be extended additively (for example to return or report the run outcome) as long as existing scheduled-message behaviour and tests are unchanged.
+- **Where it shows.** Auto-resumes are hidden from the existing scheduled-messages list and its counts. Pending state is shown on the toggle; a failure is shown as a notice next to the toggle for that session. One pending auto-resume per session is enforced in the database (a partial unique index) as well as in code.
+- **Settings edge cases.** Effective value: if managed settings set `autoContinueAtUsageLimit`, that value wins (as in the CLI); otherwise the user value; otherwise off. When managed settings set it, the toggle is shown locked. Toggling with a `missing` user file creates it containing only that key. An `invalid` user file makes the toggle show an error and write nothing.
+- **Scope of the setting.** It is one machine-wide key, so it applies to every user and session on this server; this tool is single-user in practice. Switching it off cancels all pending auto-resumes on the server.
+
 ## Left to the builder
 
 - Exact table/column changes and migration.
