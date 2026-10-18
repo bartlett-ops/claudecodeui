@@ -94,3 +94,10 @@ test('write refuses when locked', () => withPaths(async (paths) => {
     (error: { code?: string; statusCode?: number }) => error.code === 'CLAUDE_SETTINGS_LOCKED' && error.statusCode === 409,
   );
 }));
+
+test('write leaves no temp file behind', () => withPaths(async (paths) => {
+  await put(paths.userPath, { a: 1 });
+  await claudeSettingsAutoContinueService.write(true, paths);
+  const { readdir } = await import('node:fs/promises');
+  assert.deepEqual(await readdir(path.dirname(paths.userPath)), ['settings.json']);
+}));

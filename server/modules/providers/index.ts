@@ -14,6 +14,7 @@ export { initializeSessionsWatcher } from './services/sessions-watcher.service.j
 export { closeSessionsWatcher } from './services/sessions-watcher.service.js';
 
 // claudeSettingsAutoContinueService / AutoContinueSetting: used by the
-// auto-resume module to check whether to resume after a usage limit.
+// auto-resume module (and its routes) to check and show whether to resume
+// after a usage limit.
 export { claudeSettingsAutoContinueService } from './services/claude-settings-auto-continue.service.js';
 export type { AutoContinueSetting } from './services/claude-settings-auto-continue.service.js';
