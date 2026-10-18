@@ -260,6 +260,16 @@ export function cancelAllPendingAutoResumes(): number {
 }
 
 /**
+ * Dismisses the session's auto-resume: cancels a pending resume and clears a
+ * failed one so its notice goes away. Returns the number of rows changed.
+ *
+ * Consumer: the auto-resume routes, for the composer's cancel and dismiss action.
+ */
+export function dismissAutoResume(sessionId: string): number {
+  return autoResumesDb.cancelPendingForSession(sessionId) + autoResumesDb.dismissFailedForSession(sessionId);
+}
+
+/**
  * What the session's composer shows: a pending resume (when it fires and how
  * many attempts it is), and the reason the latest one failed, if it did.
  *
