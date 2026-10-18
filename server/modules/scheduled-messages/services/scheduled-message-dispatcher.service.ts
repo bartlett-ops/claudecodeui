@@ -1,3 +1,4 @@
+import { dispatchDueAutoResumes } from '@/modules/auto-resume/index.js';
 import { scheduledMessagesDb, sessionDraftsDb } from '@/modules/database/index.js';
 import type { QueuedSessionMessageRecord, ScheduledMessageRow } from '@/modules/database/index.js';
 import { chatRunRegistry, runDetachedChatTurn } from '@/modules/websocket/index.js';
@@ -191,6 +192,8 @@ export function initializeScheduledMessageDispatcher(runtime: ProviderRuntimeGat
     dispatchInFlight = true;
     void dispatchDueScheduledMessages(runtime)
       .then(() => dispatchQueuedMessages(runtime))
+      // Usage-limit resumes share this poll rather than running a second timer.
+      .then(() => dispatchDueAutoResumes(runtime))
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
         console.error('[ScheduledMessages] Dispatch pass failed', { error: message });
