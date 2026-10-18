@@ -2,6 +2,7 @@ import { sessionsDb } from '@/modules/database/index.js';
 import { ChatSessionWriter } from '@/modules/websocket/services/chat-session-writer.service.js';
 import { broadcastSessionUpserted } from '@/modules/websocket/services/session-upsert-broadcast.service.js';
 import type {
+  ChatUsageLimitHit,
   LLMProvider,
   NormalizedMessage,
   RealtimeClientConnection,
@@ -67,6 +68,12 @@ const runs = new Map<string, ChatRun>();
  * subscribes meanwhile needs the run to attach to.
  */
 let retainCompletedRun: (appSessionId: string) => boolean = () => false;
+
+/** Receives each confirmed usage-limit stop. Set by the composition root; a no-op until then. */
+let handleUsageLimit: (hit: ChatUsageLimitHit) => void = () => {};
+
+/** Told when a user-initiated (not auto-resume) run starts. Set by the composition root. */
+let observeUserRun: (sessionId: string) => void = () => {};
 
 /**
  * Schedules one run's eviction. The timer is bound to the run it was armed
@@ -182,6 +189,34 @@ export const chatRunRegistry = {
   /** Installs the check that keeps a completed run registered while its session still has background work. */
   setRetentionGuard(guard: (appSessionId: string) => boolean): void {
     retainCompletedRun = guard;
+  },
+
+  /** Consumer: composition root (auto-resume) installs the handler for confirmed usage-limit stops. */
+  setUsageLimitHandler(handler: (hit: ChatUsageLimitHit) => void): void {
+    handleUsageLimit = handler;
+  },
+
+  /** Consumer: composition root (auto-resume) installs the observer of user-initiated runs. */
+  setUserRunObserver(observer: (sessionId: string) => void): void {
+    observeUserRun = observer;
+  },
+
+  /** Consumer: chat-websocket.service reports a run's usage-limit stop. A throwing handler is logged, never propagated. */
+  notifyUsageLimit(hit: ChatUsageLimitHit): void {
+    try {
+      handleUsageLimit(hit);
+    } catch (error) {
+      console.error('[ChatRunRegistry] Usage-limit handler failed', error);
+    }
+  },
+
+  /** Consumer: chat-websocket.service announces a user-initiated run. A throwing observer is logged, never propagated. */
+  notifyUserRun(sessionId: string): void {
+    try {
+      observeUserRun(sessionId);
+    } catch (error) {
+      console.error('[ChatRunRegistry] User-run observer failed', error);
+    }
   },
 
   /**

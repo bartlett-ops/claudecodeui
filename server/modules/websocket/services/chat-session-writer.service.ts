@@ -70,6 +70,8 @@ export class ChatSessionWriter {
    * anyway, but the runtime-visible value must stay provider-native.
    */
   private providerSessionId: string | null;
+  /** Set by the registry's dispatcher; receives the reset time of a confirmed usage-limit stop. */
+  private usageLimitReporter: ((resetsAtMs: number | null) => void) | null = null;
 
   constructor(options: ChatSessionWriterOptions) {
     this.options = options;
@@ -142,6 +144,24 @@ export class ChatSessionWriter {
 
   setSessionId(sessionId: string): void {
     this.captureProviderSessionId(sessionId);
+  }
+
+  /** Consumer: chat-websocket.service (dispatchRun wires the run's usage-limit report). */
+  setUsageLimitReporter(reporter: ((resetsAtMs: number | null) => void) | null): void {
+    this.usageLimitReporter = reporter;
+  }
+
+  /**
+   * Called by a provider runtime when the run stopped on a usage limit. A
+   * no-op without a reporter; a throwing reporter is logged and swallowed so
+   * it can never break the run.
+   */
+  reportUsageLimit(resetsAtMs: number | null): void {
+    try {
+      this.usageLimitReporter?.(resetsAtMs);
+    } catch (error) {
+      console.error('[ChatSessionWriter] Usage-limit reporter failed', error);
+    }
   }
 
   getSessionId(): string | null {
