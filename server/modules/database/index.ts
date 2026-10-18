@@ -25,3 +25,6 @@ export { userPreferencesDb } from '@/modules/database/repositories/user-preferen
 export { vapidKeysDb } from '@/modules/database/repositories/vapid-keys.js';
 export { scheduledMessagesDb } from './repositories/scheduled-messages.db.js';
 export type { ScheduledMessageRow, ScheduledMessageStatus } from './repositories/scheduled-messages.db.js';
+// autoResumesDb: used by the Auto-resume module to persist and claim scheduled resumes of usage-limited sessions.
+export { autoResumesDb } from './repositories/auto-resumes.db.js';
+export type { AutoResumeRow, AutoResumeRowStatus } from './repositories/auto-resumes.db.js';
