@@ -17,6 +17,7 @@ import type {
   SessionNavigationOptions,
 } from '@/shared/types';
 import { useChatProviderState } from '@/modules/chat/hooks/useChatProviderState';
+import { useAutoResume } from '@/modules/chat/composer/useAutoResume';
 import { useScheduledMessages } from '@/modules/chat/composer/useScheduledMessages';
 import { useChatSessionState } from '@/modules/chat/hooks/useChatSessionState';
 import { useChatRealtimeHandlers } from '@/modules/chat/hooks/useChatRealtimeHandlers';
@@ -374,6 +375,11 @@ function ChatInterface({
 
   const { scheduledMessages, schedule: scheduleMessage, cancel: cancelScheduledMessage } =
     useScheduledMessages(currentSessionId || selectedSession?.id || null);
+  const {
+    status: autoResumeStatus,
+    setEnabled: setAutoResumeEnabled,
+    cancel: cancelAutoResume,
+  } = useAutoResume(currentSessionId || selectedSession?.id || null);
 
   /**
    * Hands the composer's current text to the server to send later, and clears
@@ -557,6 +563,9 @@ function ChatInterface({
           onCancelEditMessage={cancelEditMessage}
           scheduledMessages={scheduledMessages}
           onScheduleMessage={handleScheduleMessage}
+          autoResumeStatus={autoResumeStatus}
+          onSetAutoResume={(enabled) => { void setAutoResumeEnabled(enabled); }}
+          onCancelAutoResume={() => { void cancelAutoResume(); }}
           onCancelScheduledMessage={cancelScheduledMessage}
           slashCommandsCount={slashCommandsCount}
           onToggleCommandMenu={handleToggleCommandMenu}

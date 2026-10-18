@@ -14,7 +14,7 @@ import { PaperclipIcon, MessageSquareIcon, XIcon, Loader2, ArrowUpIcon, PencilIc
 
 import { useVoiceInput } from '@/modules/chat/hooks/useVoiceInput';
 import { useVoiceAvailable } from '@/modules/chat/hooks/useVoiceAvailable';
-import type { BackgroundSendChoice, BackgroundSendPrompt, QueuedDraft, ScheduledMessage, SlashCommand,SessionActivity,PendingPermissionRequest,PermissionMode,ProviderModelOption } from '@/shared/types';
+import type { AutoResumeStatus, BackgroundSendChoice, BackgroundSendPrompt, QueuedDraft, ScheduledMessage, SlashCommand,SessionActivity,PendingPermissionRequest,PermissionMode,ProviderModelOption } from '@/shared/types';
 import {
   PromptInput,
   PromptInputHeader,
@@ -33,6 +33,7 @@ import PermissionRequestsBanner from '@/modules/chat/composer/PermissionRequests
 import TokenUsageSummary from '@/modules/chat/composer/TokenUsageSummary';
 import QueuedMessageCard from '@/modules/chat/composer/QueuedMessageCard';
 import BackgroundSendDialog from '@/modules/chat/composer/BackgroundSendDialog';
+import { AutoResumeToggle } from '@/modules/chat/composer/AutoResumeToggle';
 import { ScheduleMessagePopover } from '@/modules/chat/composer/ScheduleMessagePopover';
 import { ScheduledMessageList } from '@/modules/chat/composer/ScheduledMessageList';
 import ComposerModelMenu from '@/modules/chat/composer/ComposerModelMenu';
@@ -81,6 +82,10 @@ type ChatComposerProps = {
   /** Messages waiting to be sent to this session later. */
   scheduledMessages: ScheduledMessage[];
   onScheduleMessage: (scheduledFor: Date) => void;
+  /** Auto-resume state for this session; null until it has loaded. */
+  autoResumeStatus: AutoResumeStatus | null;
+  onSetAutoResume: (enabled: boolean) => void;
+  onCancelAutoResume: () => void;
   onCancelScheduledMessage: (id: string) => void;
   onEditQueuedDraft: () => void;
   onDeleteQueuedDraft: () => void;
@@ -156,6 +161,9 @@ export default function ChatComposer({
   onCancelEditMessage,
   scheduledMessages,
   onScheduleMessage,
+  autoResumeStatus,
+  onSetAutoResume,
+  onCancelAutoResume,
   onCancelScheduledMessage,
   onEditQueuedDraft,
   onDeleteQueuedDraft,
@@ -483,6 +491,12 @@ export default function ChatComposer({
           </PromptInputTools>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+            <AutoResumeToggle
+              status={autoResumeStatus}
+              onSetEnabled={onSetAutoResume}
+              onCancel={onCancelAutoResume}
+            />
+
             <ScheduleMessagePopover
               disabled={!input.trim()}
               onSchedule={onScheduleMessage}

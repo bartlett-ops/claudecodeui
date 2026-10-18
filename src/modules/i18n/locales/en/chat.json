@@ -337,6 +337,15 @@
     "cancel": "Cancel scheduled message",
     "dismiss": "Dismiss failure notice"
   },
+  "autoResume": {
+    "trigger": "Auto-resume after usage limit",
+    "on": "Auto-resume is on. Click to turn it off.",
+    "off": "Auto-resume is off. Click to turn it on.",
+    "pending": "Resuming at {{time}}",
+    "failed": "Auto-resume stopped — {{reason}}",
+    "locked": "Auto-resume is set by your administrator and cannot be changed here.",
+    "invalid": "Your Claude settings file is invalid. Fix it to change auto-resume."
+  },
   "misc": {
     "copyToClipboard": "Copy to clipboard",
     "copyCommand": "Copy command",
