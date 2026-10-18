@@ -101,3 +101,21 @@ test('write leaves no temp file behind', () => withPaths(async (paths) => {
   const { readdir } = await import('node:fs/promises');
   assert.deepEqual(await readdir(path.dirname(paths.userPath)), ['settings.json']);
 }));
+
+test('write through a symlink keeps the link and updates its target', () => withPaths(async (paths) => {
+  const { lstat, symlink } = await import('node:fs/promises');
+  const target = path.join(path.dirname(paths.userPath), 'real.json');
+  await put(target, { a: 1 });
+  await symlink(target, paths.userPath);
+  await claudeSettingsAutoContinueService.write(true, paths);
+  assert.equal((await lstat(paths.userPath)).isSymbolicLink(), true);
+  assert.deepEqual(JSON.parse(await readFile(target, 'utf8')), { a: 1, autoContinueAtUsageLimit: true });
+}));
+
+test('write keeps a 0600 file at 0600', () => withPaths(async (paths) => {
+  const { chmod, stat } = await import('node:fs/promises');
+  await put(paths.userPath, { a: 1 });
+  await chmod(paths.userPath, 0o600);
+  await claudeSettingsAutoContinueService.write(true, paths);
+  assert.equal((await stat(paths.userPath)).mode & 0o777, 0o600);
+}));

@@ -1,4 +1,5 @@
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { chmod, mkdir, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { AppError, readObjectRecord } from '@/shared/utils.js';
@@ -124,14 +125,21 @@ export const claudeSettingsAutoContinueService = {
       : Buffer.from(text, 'utf8');
 
     // Write a sibling temp file and rename it over the original, so a failed
-    // write never leaves the user's whole settings file truncated.
-    await mkdir(path.dirname(userPath), { recursive: true });
-    const tempPath = `${userPath}.${process.pid}.${Date.now()}.tmp`;
+    // write never leaves the user's whole settings file truncated. Resolve a
+    // symlinked file first so the rename replaces its target, not the link, and
+    // carry the original mode over so a private file stays private.
+    const targetPath = await realpath(userPath).catch(() => userPath);
+    const originalMode = await stat(targetPath).then((info) => info.mode & 0o777, () => undefined);
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    const tempPath = `${targetPath}.${randomUUID()}.tmp`;
     try {
-      await writeFile(tempPath, output);
-      await rename(tempPath, userPath);
+      await writeFile(tempPath, output, { flag: 'wx' });
+      if (originalMode !== undefined) {
+        await chmod(tempPath, originalMode);
+      }
+      await rename(tempPath, targetPath);
     } catch (error) {
-      await rm(tempPath, { force: true });
+      await rm(tempPath, { force: true }).catch(() => undefined);
       throw error;
     }
     return resolveSetting({ ...user, status: 'ok', settings: { ...user.settings, [SETTING_KEY]: enabled } }, managed);
