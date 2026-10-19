@@ -15,6 +15,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+// An error or synthetic assistant message is the SDK speaking, not the model;
+// only these may carry the legacy limit text.
+function isErrorOrSyntheticAssistant(message: Record<string, unknown>): boolean {
+  const inner = message.message;
+  return Boolean(message.error) || (isRecord(inner) && inner.model === '<synthetic>');
+}
+
 function extractAssistantText(message: Record<string, unknown>): string {
   const inner = message.message;
   const content = isRecord(inner) ? inner.content : undefined;
@@ -53,12 +60,22 @@ export function createUsageLimitTracker(): { observe(message: unknown): UsageLim
           && info.isUsingOverage !== true
         ) {
           rejectedResetsAtMs = toEpochMs(info.resetsAt);
+        } else {
+          // Any later event that does not reject means the limit lifted (or
+          // overage covers it), so an earlier rejection no longer applies.
+          rejectedResetsAtMs = undefined;
         }
         return null;
       }
 
       let confirmedResetsAtMs: number | null | undefined;
       if (message.type === 'assistant') {
+        if (!isErrorOrSyntheticAssistant(message)) {
+          // The model answered normally, so the run was not stopped by an
+          // earlier rejection; ordinary text never counts as a limit stop.
+          rejectedResetsAtMs = undefined;
+          return null;
+        }
         const legacy = LEGACY_LIMIT_PATTERN.exec(extractAssistantText(message));
         if (message.error === 'rate_limit' && rejectedResetsAtMs !== undefined) {
           confirmedResetsAtMs = rejectedResetsAtMs;

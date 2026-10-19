@@ -50,9 +50,49 @@ test('legacy text form yields the embedded timestamp', () => {
   const tracker = createUsageLimitTracker();
   const hit = tracker.observe({
     type: 'assistant',
-    message: { content: [{ type: 'text', text: 'Claude AI usage limit reached|1800000000' }] },
+    message: { model: '<synthetic>', content: [{ type: 'text', text: 'Claude AI usage limit reached|1800000000' }] },
   });
   assert.deepEqual(hit, { resetsAtMs: 1_800_000_000_000 });
+});
+
+test('legacy text form from an error assistant message confirms', () => {
+  const tracker = createUsageLimitTracker();
+  const hit = tracker.observe({
+    type: 'assistant',
+    error: 'unknown',
+    message: { model: 'claude-opus', content: [{ type: 'text', text: 'Claude AI usage limit reached|1800000000' }] },
+  });
+  assert.deepEqual(hit, { resetsAtMs: 1_800_000_000_000 });
+});
+
+test('legacy text in an ordinary assistant message is not a limit stop', () => {
+  const tracker = createUsageLimitTracker();
+  const hit = tracker.observe({
+    type: 'assistant',
+    message: { model: 'claude-opus', content: [{ type: 'text', text: 'The log said: usage limit reached|1800000000' }] },
+  });
+  assert.equal(hit, null);
+});
+
+test('a later allowed event clears a remembered rejection', () => {
+  for (const later of [
+    { status: 'allowed' },
+    { status: 'allowed_warning' },
+    { status: 'rejected', overageStatus: 'allowed' },
+    { status: 'rejected', isUsingOverage: true },
+  ]) {
+    const tracker = createUsageLimitTracker();
+    tracker.observe(rejected(1_800_000_000));
+    tracker.observe({ type: 'rate_limit_event', rate_limit_info: later });
+    assert.equal(tracker.observe(erroredResult), null, JSON.stringify(later));
+  }
+});
+
+test('a later normal assistant message clears a remembered rejection', () => {
+  const tracker = createUsageLimitTracker();
+  tracker.observe(rejected(1_800_000_000));
+  tracker.observe({ type: 'assistant', message: { model: 'claude-opus', content: [{ type: 'text', text: 'hello' }] } });
+  assert.equal(tracker.observe(erroredResult), null);
 });
 
 test('a hit is reported once per tracker', () => {
