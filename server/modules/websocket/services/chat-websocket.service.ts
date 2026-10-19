@@ -202,6 +202,47 @@ function resolveSendTarget(
   return { sessionId, session, provider };
 }
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+/**
+ * The settings of a turn a usage-limit resume must repeat: the string model,
+ * effort and permission mode, the tool settings (only their well-formed
+ * fields) and `skipPermissions`. Attachments and per-turn values are left out.
+ */
+function pickResumeOptions(clientOptions: AnyRecord): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  for (const key of ['model', 'effort', 'permissionMode']) {
+    if (typeof clientOptions[key] === 'string') {
+      picked[key] = clientOptions[key];
+    }
+  }
+
+  const toolsSettings = clientOptions.toolsSettings;
+  if (toolsSettings && typeof toolsSettings === 'object' && !Array.isArray(toolsSettings)) {
+    const source = toolsSettings as AnyRecord;
+    const kept: Record<string, unknown> = {};
+    if (isStringArray(source.allowedTools)) {
+      kept.allowedTools = source.allowedTools;
+    }
+    if (isStringArray(source.disallowedTools)) {
+      kept.disallowedTools = source.disallowedTools;
+    }
+    if (typeof source.skipPermissions === 'boolean') {
+      kept.skipPermissions = source.skipPermissions;
+    }
+    if (Object.keys(kept).length > 0) {
+      picked.toolsSettings = kept;
+    }
+  }
+
+  if (typeof clientOptions.skipPermissions === 'boolean') {
+    picked.skipPermissions = clientOptions.skipPermissions;
+  }
+  return picked;
+}
+
 /**
  * Registers the run and hands the turn to the provider runtime.
  *
@@ -249,13 +290,8 @@ async function dispatchRun(
     chatRunRegistry.notifyUserRun(sessionId);
   }
 
-  // Only the string settings of this turn are kept, so a resume can repeat them.
-  const pickedOptions: Record<string, unknown> = {};
-  for (const key of ['model', 'effort', 'permissionMode']) {
-    if (typeof clientOptions[key] === 'string') {
-      pickedOptions[key] = clientOptions[key];
-    }
-  }
+  // The turn's model and permission settings are kept, so a resume repeats them.
+  const pickedOptions = pickResumeOptions(clientOptions);
   run.writer.setUsageLimitReporter((resetsAtMs) => {
     chatRunRegistry.notifyUsageLimit({ sessionId, userId, resetsAtMs, options: pickedOptions });
   });

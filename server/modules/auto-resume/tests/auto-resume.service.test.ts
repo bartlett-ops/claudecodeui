@@ -244,6 +244,26 @@ test('a due resume is sent as continue with origin auto-resume', async () => {
   });
 });
 
+test('a resume repeats the stopped run\'s tool settings and skipPermissions', async () => {
+  await withIsolatedDatabase(async ({ userId }) => {
+    const toolsSettings = { allowedTools: [], disallowedTools: ['Bash'], skipPermissions: true };
+    const now = new Date();
+    const row = await recordUsageLimitHit(
+      hitFor(userId, now.getTime() - 10_000, { model: 'opus', toolsSettings, skipPermissions: true }),
+      now,
+    );
+    assert.ok(row);
+    assert.deepEqual(JSON.parse(row.options), { model: 'opus', toolsSettings, skipPermissions: true });
+
+    const runs: RunCall[] = [];
+    assert.equal(await dispatchDueAutoResumes(createRuntime({ runs }).runtime, now), 1);
+    await waitUntil(() => latestRow().status !== 'sending');
+
+    assert.deepEqual(runs[0].options.toolsSettings, toolsSettings);
+    assert.equal(runs[0].options.skipPermissions, true);
+  });
+});
+
 test('a due resume waits while the session is busy and fails after an hour busy', async () => {
   await withIsolatedDatabase(async ({ userId }) => {
     const row = createPendingRow(userId);

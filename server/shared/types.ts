@@ -171,9 +171,11 @@ export type CustomProviderModelInput = {
  * `sessionId` is the app session id (never the provider-native id). `userId`
  * is the user that owns the run, or null when none is known. `resetsAtMs` is
  * the epoch-millisecond time the limit resets, or null when the provider did
- * not state one. `options` holds only the string `model`, `effort` and
- * `permissionMode` values the stopped run was sent with, so a later resume can
- * repeat them; keys the run did not carry as strings are absent.
+ * not state one. `options` holds only the settings a later resume must
+ * repeat from the stopped run: the string `model`, `effort` and
+ * `permissionMode`, the well-formed fields of `toolsSettings` (string-array
+ * `allowedTools`/`disallowedTools`, boolean `skipPermissions`) and a boolean
+ * `skipPermissions`; keys the run did not carry in that shape are absent.
  *
  * Consumers: WebSocket (producer, builds it per run) and Auto-resume (consumer).
  */

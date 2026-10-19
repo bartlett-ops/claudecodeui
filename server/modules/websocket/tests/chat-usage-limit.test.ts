@@ -68,6 +68,39 @@ test('a writer\'s reported limit reaches the registry handler with session, user
   });
 });
 
+test('a reported limit keeps the run\'s tool settings and skipPermissions, dropping malformed ones', async () => {
+  await withIsolatedDatabase(async () => {
+    sessionsDb.createAppSession('limit-4', 'claude', '/workspace/demo');
+    const hits: ChatUsageLimitHit[] = [];
+    chatRunRegistry.setUsageLimitHandler((hit) => { hits.push(hit); });
+    const toolsSettings = { allowedTools: ['Read'], disallowedTools: ['Bash(rm:*)'], skipPermissions: true };
+
+    await runDetachedChatTurn(
+      {
+        sessionId: 'limit-4',
+        userId: 7,
+        content: 'hi',
+        options: { model: 'opus', toolsSettings, skipPermissions: true },
+      },
+      fakeDependencies((writer) => writer.reportUsageLimit(123)),
+    );
+    await runDetachedChatTurn(
+      {
+        sessionId: 'limit-4',
+        userId: 7,
+        content: 'hi',
+        options: { toolsSettings: { allowedTools: 'Read', disallowedTools: [1] }, skipPermissions: 'yes' },
+      },
+      fakeDependencies((writer) => writer.reportUsageLimit(123)),
+    );
+
+    assert.deepEqual(hits.map((hit) => hit.options), [
+      { model: 'opus', toolsSettings, skipPermissions: true },
+      {},
+    ]);
+  });
+});
+
 test('a throwing usage-limit handler does not break the run', async () => {
   await withIsolatedDatabase(async () => {
     sessionsDb.createAppSession('limit-2', 'claude', '/workspace/demo');
