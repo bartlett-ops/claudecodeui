@@ -202,6 +202,47 @@ function resolveSendTarget(
   return { sessionId, session, provider };
 }
 
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+/**
+ * The settings of a turn a usage-limit resume must repeat: the string model,
+ * effort and permission mode, the tool settings (only their well-formed
+ * fields) and `skipPermissions`. Attachments and per-turn values are left out.
+ */
+function pickResumeOptions(clientOptions: AnyRecord): Record<string, unknown> {
+  const picked: Record<string, unknown> = {};
+  for (const key of ['model', 'effort', 'permissionMode']) {
+    if (typeof clientOptions[key] === 'string') {
+      picked[key] = clientOptions[key];
+    }
+  }
+
+  const toolsSettings = clientOptions.toolsSettings;
+  if (toolsSettings && typeof toolsSettings === 'object' && !Array.isArray(toolsSettings)) {
+    const source = toolsSettings as AnyRecord;
+    const kept: Record<string, unknown> = {};
+    if (isStringArray(source.allowedTools)) {
+      kept.allowedTools = source.allowedTools;
+    }
+    if (isStringArray(source.disallowedTools)) {
+      kept.disallowedTools = source.disallowedTools;
+    }
+    if (typeof source.skipPermissions === 'boolean') {
+      kept.skipPermissions = source.skipPermissions;
+    }
+    if (Object.keys(kept).length > 0) {
+      picked.toolsSettings = kept;
+    }
+  }
+
+  if (typeof clientOptions.skipPermissions === 'boolean') {
+    picked.skipPermissions = clientOptions.skipPermissions;
+  }
+  return picked;
+}
+
 /**
  * Registers the run and hands the turn to the provider runtime.
  *
@@ -217,6 +258,8 @@ async function dispatchRun(
   dependencies: ChatWebSocketDependencies,
   extraRuntimeOptions: AnyRecord = {},
   beforeRun?: (run: NonNullable<ReturnType<typeof chatRunRegistry.startRun>>) => void | Promise<void>,
+  // Auto-resume turns are not user activity: they must not cancel a pending resume.
+  origin: 'user' | 'auto-resume' = 'user',
 ): Promise<{ started: boolean; error: string | null }> {
   const provider = session.provider as LLMProvider;
 
@@ -242,6 +285,16 @@ async function dispatchRun(
 
   const clientOptions = (data.options ?? {}) as AnyRecord;
   const command = typeof data.content === 'string' ? data.content : '';
+
+  if (origin === 'user') {
+    chatRunRegistry.notifyUserRun(sessionId);
+  }
+
+  // The turn's model and permission settings are kept, so a resume repeats them.
+  const pickedOptions = pickResumeOptions(clientOptions);
+  run.writer.setUsageLimitReporter((resetsAtMs) => {
+    chatRunRegistry.notifyUsageLimit({ sessionId, userId, resetsAtMs, options: pickedOptions });
+  });
 
   // Record what this turn runs with so reopening the session later restores the
   // same model and reasoning effort, and so the resume path has a
@@ -614,6 +667,8 @@ export async function runDetachedChatTurn(
      * land mid-run, so the timer outranks whatever is running.
      */
     interruptActiveRun?: boolean;
+    /** `'auto-resume'` marks a turn started by the usage-limit resume, which is not user activity. Defaults to `'user'`. */
+    origin?: 'user' | 'auto-resume';
   },
   dependencies: ChatWebSocketDependencies,
 ): Promise<{ started: boolean; error: string | null }> {
@@ -651,6 +706,9 @@ export async function runDetachedChatTurn(
     session,
     { sessionId: input.sessionId, content: input.content, options: input.options ?? {} },
     dependencies,
+    {},
+    undefined,
+    input.origin ?? 'user',
   );
 }
 

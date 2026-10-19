@@ -120,6 +120,28 @@ CREATE TABLE IF NOT EXISTS scheduled_messages (
 );
 `;
 
+export const AUTO_RESUMES_TABLE_SCHEMA_SQL = `
+CREATE TABLE IF NOT EXISTS auto_resumes (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    session_id TEXT NOT NULL,
+    -- UTC ISO instant at which the usage limit resets and the session resumes.
+    resume_at DATETIME NOT NULL,
+    -- pending | sending | done | failed | cancelled
+    status TEXT NOT NULL DEFAULT 'pending',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    -- Run options (model, effort, permission mode) captured from the stopped run.
+    options TEXT NOT NULL DEFAULT '{}',
+    failure_reason TEXT,
+    -- When the resume first found the session busy; lets the service give up.
+    busy_since DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE
+);
+`;
+
 export const SESSIONS_TABLE_SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS sessions (
     session_id TEXT NOT NULL,

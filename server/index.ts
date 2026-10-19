@@ -54,6 +54,7 @@ import { worktreesRoutes } from './modules/worktrees/index.js';
 import browserUseMcpRoutes from './modules/browser-use/browser-use-mcp.routes.js';
 import { browserUseService } from './modules/browser-use/browser-use.service.js';
 import { initializeDatabase, sessionsDb } from './modules/database/index.js';
+import { autoResumeRoutes, initializeAutoResume } from './modules/auto-resume/index.js';
 import { configureWebPush } from './modules/notifications/index.js';
 
 const __dirname = getModuleDirectory(import.meta.url);
@@ -197,6 +198,7 @@ app.use('/api/browser-use', authenticateToken, browserUseRoutes);
 // Unified provider MCP routes (protected)
 app.use('/api/providers', authenticateToken, providerRoutes);
 app.use('/api/scheduled-messages', authenticateToken, scheduledMessagesRoutes);
+app.use('/api/auto-resume', authenticateToken, autoResumeRoutes);
 
 // Agent API Routes (uses API key authentication)
 app.use('/api/agent', agentRoutes);
@@ -333,6 +335,11 @@ async function startServer() {
     try {
         // Initialize authentication database
         await initializeDatabase();
+
+        // Needs the auto_resumes table, so it runs here rather than beside
+        // chatRunRegistry.setRetentionGuard above; still before the server
+        // listens, so no run can hit a limit before the handler is in place.
+        initializeAutoResume();
 
         // Configure Web Push (VAPID keys)
         configureWebPush();

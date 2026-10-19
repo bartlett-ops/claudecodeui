@@ -41,6 +41,7 @@ import {
   getReportedClaudeContextWindow,
   rememberClaudeContextWindow
 } from '@/modules/providers/services/provider-token-usage.service.js';
+import { createUsageLimitTracker } from '@/modules/providers/list/claude/claude-usage-limit.js';
 import { createCompleteMessage, createNormalizedMessage } from '@/shared/utils.js';
 
 const activeSessions = new Map();
@@ -982,6 +983,8 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
   // The client is told the turn is over as soon as `result` lands, even though
   // the process lingers, so the UI never waits out the idle hold.
   let turnCompleteSent = false;
+  // Confirms a usage-limit stop from the stream; reports it at most once per run.
+  const usageLimitTracker = createUsageLimitTracker();
   // Set when a turn starts background work, cleared when the next `result`
   // arrives — only turns with work still outstanding hold their process open.
   let backgroundWorkPending = false;
@@ -1231,6 +1234,15 @@ async function queryClaudeSDK(command, options = {}, ws, context) {
           continue;
         }
         ws.send(msg);
+      }
+
+      const usageLimitHit = usageLimitTracker.observe(message);
+      if (usageLimitHit) {
+        try {
+          ws.reportUsageLimit?.(usageLimitHit.resetsAtMs);
+        } catch (error) {
+          console.error('Failed to report usage limit:', error);
+        }
       }
 
       if (

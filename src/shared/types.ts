@@ -85,6 +85,26 @@ export type ScheduledMessage = {
   createdAt: string;
 };
 
+/**
+ * What the composer needs to know about auto-resume for one session: the
+ * global setting, any resume currently scheduled, and the last failure.
+ * Returned by the auto-resume status endpoint.
+ */
+export type AutoResumeStatus = {
+  setting: {
+    enabled: boolean;
+    /** Which settings layer decided the value; `managed` cannot be changed by the user. */
+    source: 'managed' | 'user' | 'default';
+    locked: boolean;
+    /** Health of the user's Claude settings file; `invalid` blocks writing the setting. */
+    userFileStatus: 'ok' | 'missing' | 'invalid';
+  };
+  /** A resume waiting for the usage limit to reset, or null. */
+  pending: { resumeAt: string; attempts: number } | null;
+  /** Why auto-resume gave up on this session, or null. */
+  failure: { reason: string } | null;
+};
+
 /** A single conversation inside a project, as returned by the sessions API and rendered in the sidebar and chat. */
 export type ProjectSession = {
   id: string;

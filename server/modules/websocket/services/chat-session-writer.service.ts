@@ -70,6 +70,14 @@ export class ChatSessionWriter {
    * anyway, but the runtime-visible value must stay provider-native.
    */
   private providerSessionId: string | null;
+  /** Set by the registry's dispatcher; receives the reset time of a confirmed usage-limit stop. */
+  private usageLimitReporter: ((resetsAtMs: number | null) => void) | null = null;
+  /**
+   * Content of the last `error` message the runtime emitted. Runtimes report a
+   * failed turn this way and still resolve normally, so it is the only sign
+   * the turn failed.
+   */
+  private emittedError: string | null = null;
 
   constructor(options: ChatSessionWriterOptions) {
     this.options = options;
@@ -108,10 +116,25 @@ export class ChatSessionWriter {
       return;
     }
 
+    if (message.kind === 'error') {
+      this.emittedError = typeof message.content === 'string' && message.content
+        ? message.content
+        : 'The run reported an error.';
+    }
+
     const outbound = this.options.decorateOutboundEvent(message);
     if (outbound) {
       this.forward(outbound);
     }
+  }
+
+  /**
+   * Consumer: the auto-resume module (via the run registry's run), to record a
+   * resumed turn that failed even though its runtime resolved. Returns the
+   * content of the last `error` message sent through this writer, or null.
+   */
+  getEmittedError(): string | null {
+    return this.emittedError;
   }
 
   /**
@@ -142,6 +165,24 @@ export class ChatSessionWriter {
 
   setSessionId(sessionId: string): void {
     this.captureProviderSessionId(sessionId);
+  }
+
+  /** Consumer: chat-websocket.service (dispatchRun wires the run's usage-limit report). */
+  setUsageLimitReporter(reporter: ((resetsAtMs: number | null) => void) | null): void {
+    this.usageLimitReporter = reporter;
+  }
+
+  /**
+   * Called by a provider runtime when the run stopped on a usage limit. A
+   * no-op without a reporter; a throwing reporter is logged and swallowed so
+   * it can never break the run.
+   */
+  reportUsageLimit(resetsAtMs: number | null): void {
+    try {
+      this.usageLimitReporter?.(resetsAtMs);
+    } catch (error) {
+      console.error('[ChatSessionWriter] Usage-limit reporter failed', error);
+    }
   }
 
   getSessionId(): string | null {

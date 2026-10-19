@@ -23,11 +23,14 @@ type ClaudeSettingsPermissionSource = {
 };
 
 /**
+ * Consumer: claude-settings-auto-continue.service, which reads and writes the
+ * same user file.
+ *
  * The user's own settings file. The CLI reads it from `CLAUDE_CONFIG_DIR` when
  * that is set, and the server forwards its whole env to every CLI it spawns,
  * so the same override has to apply here.
  */
-const userSettingsPath = (): string => {
+export const userSettingsPath = (): string => {
   const configDirectory = process.env.CLAUDE_CONFIG_DIR?.trim();
   const baseDirectory = configDirectory && path.isAbsolute(configDirectory)
     ? configDirectory
@@ -35,8 +38,13 @@ const userSettingsPath = (): string => {
   return path.join(baseDirectory, 'settings.json');
 };
 
-/** The administrator-managed settings file, at the fixed path the CLI uses per OS. */
-const managedSettingsPath = (): string => {
+/**
+ * Consumer: claude-settings-auto-continue.service, to see whether managed
+ * settings lock the key.
+ *
+ * The administrator-managed settings file, at the fixed path the CLI uses per OS.
+ */
+export const managedSettingsPath = (): string => {
   if (process.platform === 'darwin') {
     return '/Library/Application Support/ClaudeCode/managed-settings.json';
   }
@@ -46,15 +54,18 @@ const managedSettingsPath = (): string => {
   return '/etc/claude-code/managed-settings.json';
 };
 
+// Consumer: claude-settings-auto-continue.service applies the same size cap.
 // The CLI refuses to load a settings file larger than this (2 MB).
-const MAX_SETTINGS_FILE_BYTES = 2 * 1024 * 1024;
+export const MAX_SETTINGS_FILE_BYTES = 2 * 1024 * 1024;
 
 /**
+ * Consumer: claude-settings-auto-continue.service decodes files identically.
+ *
  * Decodes a settings file the way the CLI does: UTF-16LE when it starts with
  * that byte order mark, UTF-8 otherwise, without the leading BOM. Windows
  * editors and PowerShell often save one, and the CLI still applies such files.
  */
-const decodeSettingsFile = (bytes: Buffer): string => {
+export const decodeSettingsFile = (bytes: Buffer): string => {
   const isUtf16LittleEndian = bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe;
   return bytes.toString(isUtf16LittleEndian ? 'utf16le' : 'utf8').replace(/^\uFEFF/, '');
 };
@@ -113,8 +124,9 @@ async function readPermissionSource(
  *
  * Used by provider.routes.ts for the Claude permissions panel in Settings.
  * Project-level files are left out on purpose: the panel has no project, and
- * those files only apply to chats started inside their project. CloudCLI never
- * writes to any of these files.
+ * those files only apply to chats started inside their project. This service
+ * never writes to any of these files; only claude-settings-auto-continue.service
+ * writes, and only the user file's `autoContinueAtUsageLimit` key.
  */
 export const claudeSettingsPermissionsService = {
   /** `managedPath` is only overridden by tests, which cannot write to the system path. */

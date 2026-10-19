@@ -301,6 +301,12 @@ export const api = {
     cancel: (id: string) => del(`/api/scheduled-messages/${encodeURIComponent(id)}`),
   },
 
+  autoResume: {
+    status: (sessionId: string) => get(`/api/auto-resume/status${query({ sessionId })}`),
+    setEnabled: (enabled: boolean) => put('/api/auto-resume/setting', { enabled }),
+    cancel: (sessionId: string) => del(`/api/auto-resume/sessions/${encodeURIComponent(sessionId)}`),
+  },
+
   // Workspace file tree
   readFile: (projectId: string, filePath: string) =>
     get(`/api/file-tree/projects/${projectId}/file${query({ filePath })}`),
