@@ -74,7 +74,7 @@ describe('the auto-resume toggle', () => {
     expect(onSetEnabled).not.toHaveBeenCalled();
   });
 
-  it('a failed state shows a truncated reason, the full text in its title, and dismissing asks first', () => {
+  it('a failed state keeps the full reason in its title, shows no separate notice, and dismissing asks first', () => {
     const onCancel = vi.fn();
     const reason = 'The limit was hit again and again and again, far more times than anyone expected it to be';
     render(
@@ -85,10 +85,11 @@ describe('the auto-resume toggle', () => {
       />,
     );
 
-    const notice = screen.getByText((text) => text.startsWith('Auto-resume stopped — The limit was hit'));
-    expect(notice.textContent?.endsWith('…')).toBe(true);
-    expect(notice.textContent?.includes(reason)).toBe(false);
-    expect(notice.getAttribute('title')).toBe(`Auto-resume stopped — ${reason}`);
+    // The reason is read from the input placeholder; the button's title keeps the full text.
+    expect(screen.queryByText((text) => text.startsWith('Auto-resume stopped'))).toBeNull();
+    expect(screen.getByRole('button', { name: `Dismiss the auto-resume failure: ${reason}` }).getAttribute('title')).toBe(
+      `Auto-resume stopped — ${reason}`,
+    );
 
     const button = screen.getByRole('button', { name: `Dismiss the auto-resume failure: ${reason}` });
     expect(button.getAttribute('aria-pressed')).toBeNull();

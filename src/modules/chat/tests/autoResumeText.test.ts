@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import type { AutoResumeStatus } from '@/shared/types';
-import { formatResumeAt, getPendingResumeTime } from '@/modules/chat/utils/autoResumeText';
+import { i18n } from '@/modules/i18n';
+import { formatResumeAt, getAutoResumePlaceholder } from '@/modules/chat/utils/autoResumeText';
+
+const t = i18n.getFixedT('en', 'chat');
 
 function makeStatus(overrides: Partial<AutoResumeStatus> = {}): AutoResumeStatus {
   return {
@@ -30,17 +33,28 @@ describe('auto-resume text', () => {
     );
   });
 
-  it('gives the pending resume time for the input placeholder', () => {
+  it('says when a pending resume will fire', () => {
     const resumeAt = new Date();
     resumeAt.setHours(23, 59, 0, 0);
     const status = makeStatus({ pending: { resumeAt: resumeAt.toISOString(), attempts: 1 } });
-    expect(getPendingResumeTime(status)).toBe(formatResumeAt(resumeAt.toISOString()));
+    expect(getAutoResumePlaceholder(status, t)).toBe(`Resuming at ${formatResumeAt(resumeAt.toISOString())}`);
   });
 
-  it('gives no time without status, without a pending resume, or when a failure outranks it', () => {
+  it('says why a resume gave up, and a failure outranks a pending resume', () => {
     const pending = { resumeAt: new Date().toISOString(), attempts: 1 };
-    expect(getPendingResumeTime(null)).toBeNull();
-    expect(getPendingResumeTime(makeStatus())).toBeNull();
-    expect(getPendingResumeTime(makeStatus({ pending, failure: { reason: 'x' } }))).toBeNull();
+    const status = makeStatus({ pending, failure: { reason: 'Gave up after 3 attempts.' } });
+    expect(getAutoResumePlaceholder(status, t)).toBe('Auto-resume stopped — Gave up after 3 attempts.');
+  });
+
+  it('truncates a long failure reason', () => {
+    const reason = 'x'.repeat(200);
+    const text = getAutoResumePlaceholder(makeStatus({ failure: { reason } }), t) ?? '';
+    expect(text.endsWith('…')).toBe(true);
+    expect(text.includes(reason)).toBe(false);
+  });
+
+  it('says nothing without status or without a pending resume or failure', () => {
+    expect(getAutoResumePlaceholder(null, t)).toBeNull();
+    expect(getAutoResumePlaceholder(makeStatus(), t)).toBeNull();
   });
 });

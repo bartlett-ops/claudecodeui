@@ -12,13 +12,6 @@ type AutoResumeToggleProps = {
   onCancel: () => void;
 };
 
-/** Longest failure reason shown in the visible notice; the full text stays in its title. */
-const MAX_NOTICE_REASON_LENGTH = 40;
-
-function truncate(text: string, maxLength: number): string {
-  return text.length > maxLength ? `${text.slice(0, maxLength - 1).trimEnd()}…` : text;
-}
-
 /**
  * Rendered by chat's ChatComposer beside the schedule button so the user can
  * turn auto-resume on or off and see or cancel a resume that is waiting.
@@ -44,16 +37,11 @@ export function AutoResumeToggle({ status, onSetEnabled, onCancel }: AutoResumeT
   // Pending and failed states are actions on one session (cancel, dismiss),
   // so they get a label saying so and no pressed state.
   let ariaLabel = t('autoResume.trigger');
-  let notice: { text: string; title: string } | null = null; // failures only: a pending resume is shown in the input placeholder
   if (failure) {
     title = t('autoResume.failed', { reason: failure.reason });
     tone = 'text-destructive';
     onClick = () => setConfirming(true);
     ariaLabel = t('autoResume.dismissLabel', { reason: failure.reason });
-    notice = {
-      text: t('autoResume.failed', { reason: truncate(failure.reason, MAX_NOTICE_REASON_LENGTH) }),
-      title,
-    };
   } else if (pending) {
     const time = formatResumeAt(pending.resumeAt);
     title = t('autoResume.pending', { time });
@@ -105,14 +93,7 @@ export function AutoResumeToggle({ status, onSetEnabled, onCancel }: AutoResumeT
             {t('autoResume.keep')}
           </button>
         </span>
-      ) : notice && (
-        <span
-          title={notice.title}
-          className={cn('max-w-[14rem] truncate text-[11px]', failure ? 'text-destructive' : 'text-muted-foreground')}
-        >
-          {notice.text}
-        </span>
-      )}
+      ) : null}
       <button
         type="button"
         disabled={disabled}
