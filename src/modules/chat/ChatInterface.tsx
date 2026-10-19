@@ -18,6 +18,7 @@ import type {
 } from '@/shared/types';
 import { useChatProviderState } from '@/modules/chat/hooks/useChatProviderState';
 import { useAutoResume } from '@/modules/chat/composer/useAutoResume';
+import { getPendingResumeTime } from '@/modules/chat/utils/autoResumeText';
 import { useScheduledMessages } from '@/modules/chat/composer/useScheduledMessages';
 import { useChatSessionState } from '@/modules/chat/hooks/useChatSessionState';
 import { useChatRealtimeHandlers } from '@/modules/chat/hooks/useChatRealtimeHandlers';
@@ -380,6 +381,8 @@ function ChatInterface({
     setEnabled: setAutoResumeEnabled,
     cancel: cancelAutoResume,
   } = useAutoResume(currentSessionId || selectedSession?.id || null, provider);
+  // Shown as the input placeholder, so the user reads it where they would type.
+  const pendingResumeTime = getPendingResumeTime(autoResumeStatus);
 
   /**
    * Hands the composer's current text to the server to send later, and clears
@@ -619,7 +622,9 @@ function ChatInterface({
           onTextareaInput={handleTextareaInput}
           isInputFocused={isInputFocused}
           onInputFocusChange={handleInputFocusChange}
-          placeholder={t('input.placeholder', { provider: selectedProviderLabel })}
+          placeholder={pendingResumeTime
+            ? t('autoResume.pending', { time: pendingResumeTime })
+            : t('input.placeholder', { provider: selectedProviderLabel })}
           isTextareaExpanded={isTextareaExpanded}
           sendByCtrlEnter={sendByCtrlEnter}
         />

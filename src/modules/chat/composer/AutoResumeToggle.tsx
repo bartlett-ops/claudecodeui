@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/shared/utils';
 import type { AutoResumeStatus } from '@/shared/types';
+import { formatResumeAt } from '@/modules/chat/utils/autoResumeText';
 
 type AutoResumeToggleProps = {
   status: AutoResumeStatus | null;
@@ -13,15 +14,6 @@ type AutoResumeToggleProps = {
 
 /** Longest failure reason shown in the visible notice; the full text stays in its title. */
 const MAX_NOTICE_REASON_LENGTH = 40;
-
-/** The resume time, with the date when it is not today. */
-function formatResumeAt(resumeAt: string): string {
-  const date = new Date(resumeAt);
-  const isToday = date.toDateString() === new Date().toDateString();
-  return isToday
-    ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
 
 function truncate(text: string, maxLength: number): string {
   return text.length > maxLength ? `${text.slice(0, maxLength - 1).trimEnd()}…` : text;
@@ -52,7 +44,7 @@ export function AutoResumeToggle({ status, onSetEnabled, onCancel }: AutoResumeT
   // Pending and failed states are actions on one session (cancel, dismiss),
   // so they get a label saying so and no pressed state.
   let ariaLabel = t('autoResume.trigger');
-  let notice: { text: string; title: string } | null = null;
+  let notice: { text: string; title: string } | null = null; // failures only: a pending resume is shown in the input placeholder
   if (failure) {
     title = t('autoResume.failed', { reason: failure.reason });
     tone = 'text-destructive';
@@ -68,7 +60,6 @@ export function AutoResumeToggle({ status, onSetEnabled, onCancel }: AutoResumeT
     tone = 'text-primary';
     onClick = () => setConfirming(true);
     ariaLabel = t('autoResume.cancelLabel', { time });
-    notice = { text: title, title };
   } else if (setting.locked) {
     title = t('autoResume.locked');
     tone = setting.enabled ? 'text-primary' : 'text-muted-foreground';

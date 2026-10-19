@@ -41,7 +41,7 @@ describe('the auto-resume toggle', () => {
     expect(onSetEnabled).toHaveBeenCalledWith(false);
   });
 
-  it('a pending state shows a visible notice with the time, and cancelling asks first', () => {
+  it('a pending state names the time in its label, shows no separate notice, and cancelling asks first', () => {
     const onCancel = vi.fn();
     const onSetEnabled = vi.fn();
     const resumeAt = new Date();
@@ -55,7 +55,8 @@ describe('the auto-resume toggle', () => {
     );
 
     const time = resumeAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    expect(screen.getByText(`Resuming at ${time}`)).toBeTruthy();
+    // The time is read from the input placeholder, not from a separate element.
+    expect(screen.queryByText(`Resuming at ${time}`)).toBeNull();
     const button = screen.getByRole('button', { name: `Cancel the auto-resume at ${time}` });
     expect(button.getAttribute('aria-pressed')).toBeNull();
 
@@ -71,22 +72,6 @@ describe('the auto-resume toggle', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel resume' }));
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onSetEnabled).not.toHaveBeenCalled();
-  });
-
-  it('a pending resume on another day includes the date', () => {
-    const resumeAt = new Date();
-    resumeAt.setDate(resumeAt.getDate() + 2);
-    resumeAt.setHours(9, 30, 0, 0);
-    render(
-      <AutoResumeToggle
-        status={makeStatus({ setting: { enabled: true }, pending: { resumeAt: resumeAt.toISOString(), attempts: 1 } })}
-        onSetEnabled={() => {}}
-        onCancel={() => {}}
-      />,
-    );
-
-    const when = resumeAt.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    expect(screen.getByText(`Resuming at ${when}`)).toBeTruthy();
   });
 
   it('a failed state shows a truncated reason, the full text in its title, and dismissing asks first', () => {
