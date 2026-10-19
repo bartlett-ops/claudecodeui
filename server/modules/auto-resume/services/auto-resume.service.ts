@@ -168,7 +168,7 @@ export async function attemptResume(row: AutoResumeRow, runtime: ProviderRuntime
 
   let failure: string | null;
   try {
-    const result = await runDetachedChatTurn(
+    const turn = runDetachedChatTurn(
       {
         sessionId,
         userId: row.user_id,
@@ -180,7 +180,15 @@ export async function attemptResume(row: AutoResumeRow, runtime: ProviderRuntime
       },
       { runtime },
     );
-    failure = result.started ? result.error : result.error ?? 'The session was unavailable when this was due.';
+    // Without interruptActiveRun the run is registered synchronously inside
+    // the call, so when the turn started this is the resume's own run. Held
+    // here because the registry may evict or replace it once the turn ends.
+    const run = chatRunRegistry.getRun(sessionId);
+    const result = await turn;
+    // A runtime reports a failed turn as an `error` message and resolves.
+    failure = result.started
+      ? result.error ?? run?.writer.getEmittedError() ?? null
+      : result.error ?? 'The session was unavailable when this was due.';
   } catch (error) {
     failure = errorMessage(error);
   } finally {
@@ -215,8 +223,22 @@ export async function attemptResume(row: AutoResumeRow, runtime: ProviderRuntime
  */
 export async function dispatchDueAutoResumes(runtime: ProviderRuntimeGateway, now: Date = new Date()): Promise<number> {
   let started = 0;
+  const due = autoResumesDb.listDue(now);
+  if (due.length === 0) {
+    return 0;
+  }
 
-  for (const row of autoResumesDb.listDue(now)) {
+  // Re-checked when resumes come due: the user may have switched auto-continue
+  // off (outside this app) since the hit was recorded.
+  const setting = await claudeSettingsAutoContinueService.read();
+  if (!setting.enabled) {
+    for (const row of due) {
+      autoResumesDb.cancelPendingForSession(row.session_id);
+    }
+    return 0;
+  }
+
+  for (const row of due) {
     if (isSessionBusy(row.session_id, runtime)) {
       autoResumesDb.touchBusy(row.id, now);
       const busySince = row.busy_since ? new Date(row.busy_since).getTime() : now.getTime();
@@ -243,8 +265,7 @@ export async function dispatchDueAutoResumes(runtime: ProviderRuntimeGateway, no
  * Cancels the session's pending resume; one already sending is left to finish.
  * Returns the number cancelled.
  *
- * Consumer: this module's `initializeAutoResume` (the user-run observer: a
- * user's own message means they have moved on); also the auto-resume routes.
+ * Consumer: exported for the module's tests.
  */
 export function cancelPendingAutoResume(sessionId: string): number {
   return autoResumesDb.cancelPendingForSession(sessionId);
@@ -263,7 +284,9 @@ export function cancelAllPendingAutoResumes(): number {
  * Dismisses the session's auto-resume: cancels a pending resume and clears a
  * failed one so its notice goes away. Returns the number of rows changed.
  *
- * Consumer: the auto-resume routes, for the composer's cancel and dismiss action.
+ * Consumer: the auto-resume routes, for the composer's cancel and dismiss
+ * action; also this module's `initializeAutoResume` (the user-run observer: a
+ * user's own message means they have moved on).
  */
 export function dismissAutoResume(sessionId: string): number {
   return autoResumesDb.cancelPendingForSession(sessionId) + autoResumesDb.dismissFailedForSession(sessionId);
@@ -290,7 +313,7 @@ export function getAutoResumeStatus(sessionId: string): {
 /**
  * Recovers rows a previous process left sending, then connects the chat run
  * registry: usage-limit stops are recorded, and a user's own run cancels the
- * session's pending resume. Needs the database to be initialized.
+ * session's pending resume and dismisses a failed one. Needs the database to be initialized.
  *
  * Consumer: the server composition root (server/index.ts), at startup.
  */
@@ -306,6 +329,8 @@ export function initializeAutoResume(): void {
     });
   });
   chatRunRegistry.setUserRunObserver((sessionId) => {
-    cancelPendingAutoResume(sessionId);
+    // The user continued by hand: a pending resume is moot and a failure
+    // notice is stale.
+    dismissAutoResume(sessionId);
   });
 }

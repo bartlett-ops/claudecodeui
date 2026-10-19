@@ -72,6 +72,12 @@ export class ChatSessionWriter {
   private providerSessionId: string | null;
   /** Set by the registry's dispatcher; receives the reset time of a confirmed usage-limit stop. */
   private usageLimitReporter: ((resetsAtMs: number | null) => void) | null = null;
+  /**
+   * Content of the last `error` message the runtime emitted. Runtimes report a
+   * failed turn this way and still resolve normally, so it is the only sign
+   * the turn failed.
+   */
+  private emittedError: string | null = null;
 
   constructor(options: ChatSessionWriterOptions) {
     this.options = options;
@@ -110,10 +116,25 @@ export class ChatSessionWriter {
       return;
     }
 
+    if (message.kind === 'error') {
+      this.emittedError = typeof message.content === 'string' && message.content
+        ? message.content
+        : 'The run reported an error.';
+    }
+
     const outbound = this.options.decorateOutboundEvent(message);
     if (outbound) {
       this.forward(outbound);
     }
+  }
+
+  /**
+   * Consumer: the auto-resume module (via the run registry's run), to record a
+   * resumed turn that failed even though its runtime resolved. Returns the
+   * content of the last `error` message sent through this writer, or null.
+   */
+  getEmittedError(): string | null {
+    return this.emittedError;
   }
 
   /**

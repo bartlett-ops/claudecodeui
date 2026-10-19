@@ -388,3 +388,40 @@ test('initializeAutoResume wires a user run to cancel the pending resume', async
     assert.equal(latestRow().status, 'cancelled');
   });
 });
+
+test('a due resume is cancelled, not sent, when auto-continue was turned off after the hit', async () => {
+  await withIsolatedDatabase(async ({ userId, configDirectory }) => {
+    const row = createPendingRow(userId);
+    await setAutoContinue(configDirectory, false);
+
+    const runs: RunCall[] = [];
+    assert.equal(await dispatchDueAutoResumes(createRuntime({ runs }).runtime), 0);
+    assert.equal(latestRow().id, row.id);
+    assert.equal(latestRow().status, 'cancelled');
+    assert.equal(runs.length, 0);
+  });
+});
+
+test('a resumed run that emits an error message is marked failed with its content', async () => {
+  await withIsolatedDatabase(async ({ userId }) => {
+    initializeAutoResume();
+    const row = await claimedRow(userId);
+    const { runtime } = createRuntime({
+      onRun: (writer) => { writer.send({ kind: 'error', content: 'SDK exploded' }); },
+    });
+    await attemptResume(row, runtime);
+    assert.equal(latestRow().status, 'failed');
+    assert.equal(latestRow().failure_reason, 'SDK exploded');
+  });
+});
+
+test('a user run also dismisses a failed resume', async () => {
+  await withIsolatedDatabase(async ({ userId }) => {
+    const row = await recordUsageLimitHit(hitFor(userId, null));
+    assert.equal(row?.status, 'failed');
+    initializeAutoResume();
+    chatRunRegistry.notifyUserRun(SESSION_ID);
+    assert.equal(latestRow().status, 'cancelled');
+    assert.equal(getAutoResumeStatus(SESSION_ID).failure, null);
+  });
+});
