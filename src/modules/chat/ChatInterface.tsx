@@ -379,7 +379,7 @@ function ChatInterface({
     status: autoResumeStatus,
     setEnabled: setAutoResumeEnabled,
     cancel: cancelAutoResume,
-  } = useAutoResume(currentSessionId || selectedSession?.id || null);
+  } = useAutoResume(currentSessionId || selectedSession?.id || null, provider);
 
   /**
    * Hands the composer's current text to the server to send later, and clears
@@ -564,8 +564,16 @@ function ChatInterface({
           scheduledMessages={scheduledMessages}
           onScheduleMessage={handleScheduleMessage}
           autoResumeStatus={autoResumeStatus}
-          onSetAutoResume={(enabled) => { void setAutoResumeEnabled(enabled); }}
-          onCancelAutoResume={() => { void cancelAutoResume(); }}
+          onSetAutoResume={(enabled) => {
+            void setAutoResumeEnabled(enabled).then((ok) => {
+              if (!ok) console.error('Auto-resume setting was not changed.');
+            });
+          }}
+          onCancelAutoResume={() => {
+            void cancelAutoResume().then((ok) => {
+              if (!ok) console.error('Auto-resume was not cancelled.');
+            });
+          }}
           onCancelScheduledMessage={cancelScheduledMessage}
           slashCommandsCount={slashCommandsCount}
           onToggleCommandMenu={handleToggleCommandMenu}
