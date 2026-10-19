@@ -344,7 +344,14 @@
     "pending": "Resuming at {{time}}",
     "failed": "Auto-resume stopped — {{reason}}",
     "locked": "Auto-resume is set by your administrator and cannot be changed here.",
-    "invalid": "Your Claude settings file is invalid. Fix it to change auto-resume."
+    "invalid": "Your Claude settings file is invalid. Fix it to change auto-resume.",
+    "cancelLabel": "Cancel the auto-resume at {{time}}",
+    "dismissLabel": "Dismiss the auto-resume failure: {{reason}}",
+    "cancelPrompt": "Cancel this resume?",
+    "dismissPrompt": "Dismiss this notice?",
+    "confirmCancel": "Cancel resume",
+    "confirmDismiss": "Dismiss",
+    "keep": "Keep"
   },
   "misc": {
     "copyToClipboard": "Copy to clipboard",
