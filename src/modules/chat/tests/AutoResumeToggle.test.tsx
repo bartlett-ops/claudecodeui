@@ -74,29 +74,22 @@ describe('the auto-resume toggle', () => {
     expect(onSetEnabled).not.toHaveBeenCalled();
   });
 
-  it('a failed state keeps the full reason in its title, shows no separate notice, and dismissing asks first', () => {
-    const onCancel = vi.fn();
-    const reason = 'The limit was hit again and again and again, far more times than anyone expected it to be';
+  it('a failed status leaves the toggle a plain on/off control', () => {
+    const onSetEnabled = vi.fn();
     render(
       <AutoResumeToggle
-        status={makeStatus({ setting: { enabled: true }, failure: { reason } })}
-        onSetEnabled={() => {}}
-        onCancel={onCancel}
+        status={makeStatus({ setting: { enabled: true }, failure: { reason: 'Gave up after 3 attempts.' } })}
+        onSetEnabled={onSetEnabled}
+        onCancel={() => {}}
       />,
     );
 
-    // The reason is read from the input placeholder; the button's title keeps the full text.
-    expect(screen.queryByText((text) => text.startsWith('Auto-resume stopped'))).toBeNull();
-    expect(screen.getByRole('button', { name: `Dismiss the auto-resume failure: ${reason}` }).getAttribute('title')).toBe(
-      `Auto-resume stopped — ${reason}`,
-    );
-
-    const button = screen.getByRole('button', { name: `Dismiss the auto-resume failure: ${reason}` });
-    expect(button.getAttribute('aria-pressed')).toBeNull();
+    // The reason lives in the banner above the input, not here.
+    expect(screen.queryByText((text) => text.includes('Gave up after 3 attempts.'))).toBeNull();
+    const button = screen.getByRole('button', { name: 'Auto-resume after usage limit' });
+    expect(button.getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(button);
-    expect(onCancel).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
-    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onSetEnabled).toHaveBeenCalledWith(false);
   });
 
   it('the plain on/off toggle exposes aria-pressed', () => {

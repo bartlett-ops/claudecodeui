@@ -16,30 +16,16 @@ export function formatResumeAt(resumeAt: string): string {
     : date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-/** Longest failure reason put in the placeholder; the toggle's tooltip keeps the full text. */
-const MAX_PLACEHOLDER_REASON_LENGTH = 80;
-
 /**
- * What the input placeholder says about auto-resume, or null when there is
- * nothing to say: the failure reason when a resume gave up, otherwise the time
- * a waiting resume will fire. A failure outranks a pending resume, as it does
- * on the toggle.
+ * What the input placeholder says about auto-resume: the time a waiting resume
+ * will fire, or null when none is waiting. A failed resume is shown in a banner
+ * above the input instead, so it says nothing here.
  *
  * Used by ChatInterface so the user reads this where they would type.
  */
 export function getAutoResumePlaceholder(status: AutoResumeStatus | null, t: TFunction): string | null {
-  if (!status) {
+  if (!status || status.failure || !status.pending) {
     return null;
   }
-  if (status.failure) {
-    const { reason } = status.failure;
-    const shown = reason.length > MAX_PLACEHOLDER_REASON_LENGTH
-      ? `${reason.slice(0, MAX_PLACEHOLDER_REASON_LENGTH - 1).trimEnd()}…`
-      : reason;
-    return t('autoResume.failed', { reason: shown });
-  }
-  if (status.pending) {
-    return t('autoResume.pending', { time: formatResumeAt(status.pending.resumeAt) });
-  }
-  return null;
+  return t('autoResume.pending', { time: formatResumeAt(status.pending.resumeAt) });
 }

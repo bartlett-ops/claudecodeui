@@ -40,17 +40,10 @@ describe('auto-resume text', () => {
     expect(getAutoResumePlaceholder(status, t)).toBe(`Resuming at ${formatResumeAt(resumeAt.toISOString())}`);
   });
 
-  it('says why a resume gave up, and a failure outranks a pending resume', () => {
+  it('says nothing when a resume failed, since the banner shows the reason', () => {
     const pending = { resumeAt: new Date().toISOString(), attempts: 1 };
     const status = makeStatus({ pending, failure: { reason: 'Gave up after 3 attempts.' } });
-    expect(getAutoResumePlaceholder(status, t)).toBe('Auto-resume stopped — Gave up after 3 attempts.');
-  });
-
-  it('truncates a long failure reason', () => {
-    const reason = 'x'.repeat(200);
-    const text = getAutoResumePlaceholder(makeStatus({ failure: { reason } }), t) ?? '';
-    expect(text.endsWith('…')).toBe(true);
-    expect(text.includes(reason)).toBe(false);
+    expect(getAutoResumePlaceholder(status, t)).toBeNull();
   });
 
   it('says nothing without status or without a pending resume or failure', () => {

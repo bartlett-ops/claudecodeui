@@ -33,6 +33,7 @@ import PermissionRequestsBanner from '@/modules/chat/composer/PermissionRequests
 import TokenUsageSummary from '@/modules/chat/composer/TokenUsageSummary';
 import QueuedMessageCard from '@/modules/chat/composer/QueuedMessageCard';
 import BackgroundSendDialog from '@/modules/chat/composer/BackgroundSendDialog';
+import { AutoResumeFailureBanner } from '@/modules/chat/composer/AutoResumeFailureBanner';
 import { AutoResumeToggle } from '@/modules/chat/composer/AutoResumeToggle';
 import { ScheduleMessagePopover } from '@/modules/chat/composer/ScheduleMessagePopover';
 import { ScheduledMessageList } from '@/modules/chat/composer/ScheduledMessageList';
@@ -302,6 +303,11 @@ export default function ChatComposer({
       <ScheduledMessageList
         scheduledMessages={scheduledMessages}
         onCancel={onCancelScheduledMessage}
+      />
+
+      <AutoResumeFailureBanner
+        failure={autoResumeStatus?.failure ?? null}
+        onDismiss={onCancelAutoResume}
       />
 
       {isEditingSentMessage && (

@@ -18,31 +18,27 @@ type AutoResumeToggleProps = {
  */
 export function AutoResumeToggle({ status, onSetEnabled, onCancel }: AutoResumeToggleProps) {
   const { t } = useTranslation('chat');
-  // Whether the user clicked a pending or failed state and is being asked to
-  // confirm the cancel or dismiss; a stray click must not drop a resume.
+  // Whether the user clicked a waiting resume and is being asked to confirm
+  // the cancel; a stray click must not drop a resume.
   const [confirming, setConfirming] = useState(false);
 
   if (!status) {
     return null;
   }
 
-  const { setting, pending, failure } = status;
+  const { setting, pending } = status;
   const blocked = setting.locked || setting.userFileStatus === 'invalid';
 
-  // A failure outranks a pending resume, and both outrank the plain setting,
-  // because they are what the user most needs to act on.
+  // A waiting resume outranks the plain setting, because it is what the user
+  // most needs to act on. A failure is shown in its own banner above the input
+  // and leaves this a plain on/off control.
   let title: string;
   let tone: string;
   let onClick: () => void;
-  // Pending and failed states are actions on one session (cancel, dismiss),
-  // so they get a label saying so and no pressed state.
+  // A waiting resume is an action on one session (cancel), so it gets a label
+  // saying so and no pressed state.
   let ariaLabel = t('autoResume.trigger');
-  if (failure) {
-    title = t('autoResume.failed', { reason: failure.reason });
-    tone = 'text-destructive';
-    onClick = () => setConfirming(true);
-    ariaLabel = t('autoResume.dismissLabel', { reason: failure.reason });
-  } else if (pending) {
+  if (pending) {
     const time = formatResumeAt(pending.resumeAt);
     title = t('autoResume.pending', { time });
     tone = 'text-primary';
@@ -62,10 +58,10 @@ export function AutoResumeToggle({ status, onSetEnabled, onCancel }: AutoResumeT
     onClick = () => onSetEnabled(!setting.enabled);
   }
 
-  // Failure and pending stay clickable even when the setting is locked: they
-  // cancel or dismiss a single session, which does not touch the setting.
-  const disabled = blocked && !failure && !pending;
-  const isAction = Boolean(failure || pending);
+  // A waiting resume stays clickable even when the setting is locked: it will
+  // only cancel this session's resume, which does not touch the setting.
+  const disabled = blocked && !pending;
+  const isAction = Boolean(pending);
   const showConfirm = confirming && isAction;
 
   return (
@@ -73,7 +69,7 @@ export function AutoResumeToggle({ status, onSetEnabled, onCancel }: AutoResumeT
       {showConfirm ? (
         <span className="flex items-center gap-1 text-[11px]">
           <span className="text-muted-foreground">
-            {failure ? t('autoResume.dismissPrompt') : t('autoResume.cancelPrompt')}
+            {t('autoResume.cancelPrompt')}
           </span>
           <button
             type="button"
@@ -83,7 +79,7 @@ export function AutoResumeToggle({ status, onSetEnabled, onCancel }: AutoResumeT
             }}
             className="rounded-md bg-primary px-1.5 py-0.5 font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
-            {failure ? t('autoResume.confirmDismiss') : t('autoResume.confirmCancel')}
+            {t('autoResume.confirmCancel')}
           </button>
           <button
             type="button"
@@ -108,7 +104,7 @@ export function AutoResumeToggle({ status, onSetEnabled, onCancel }: AutoResumeT
         )}
       >
         <RotateCw className="h-4 w-4" />
-        {pending && !failure && (
+        {pending && (
           <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-primary" />
         )}
       </button>
